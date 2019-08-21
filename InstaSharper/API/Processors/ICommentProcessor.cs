@@ -7,9 +7,11 @@ namespace InstaSharper.API.Processors
     public interface ICommentProcessor
     {
         Task<IResult<InstaCommentList>>
-            GetMediaCommentsAsync(string mediaId, PaginationParameters paginationParameters);
+        GetMediaCommentsAsync(string mediaId, PaginationParameters paginationParameters);
 
         Task<IResult<InstaComment>> CommentMediaAsync(string mediaId, string text);
         Task<IResult<bool>> DeleteCommentAsync(string mediaId, string commentId);
+        Task<IResult<bool>> LikeMediaCommentAsync(long commentId);
+        Task<IResult<InstaLikersList>> GetMediaCommentLikersAsync(long commentId);
     }
 }

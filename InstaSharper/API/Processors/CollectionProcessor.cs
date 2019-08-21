@@ -23,12 +23,12 @@ namespace InstaSharper.API.Processors
         private readonly UserSessionData _user;
 
         public CollectionProcessor(AndroidDevice deviceInfo, UserSessionData user,
-            IHttpRequestProcessor httpRequestProcessor, IInstaLogger logger)
+            IHttpRequestProcessor httpRequestProcessor, Func<object, IInstaLogger> loggerFactory)
         {
             _deviceInfo = deviceInfo;
             _user = user;
             _httpRequestProcessor = httpRequestProcessor;
-            _logger = logger;
+            _logger = loggerFactory(this);
         }
 
         public async Task<IResult<InstaCollectionItem>> GetCollectionAsync(long collectionId)
@@ -36,8 +36,7 @@ namespace InstaSharper.API.Processors
             try
             {
                 var collectionUri = UriCreator.GetCollectionUri(collectionId);
-                var request = HttpHelper.GetDefaultRequest(HttpMethod.Get, collectionUri, _deviceInfo);
-                var response = await _httpRequestProcessor.SendAsync(request);
+                var response = await _httpRequestProcessor.SendAsync(() => HttpHelper.GetDefaultRequest(HttpMethod.Get, collectionUri, _deviceInfo));
                 var json = await response.Content.ReadAsStringAsync();
                 if (response.StatusCode != HttpStatusCode.OK)
                     return Result.UnExpectedResponse<InstaCollectionItem>(response, json);
@@ -60,8 +59,7 @@ namespace InstaSharper.API.Processors
             try
             {
                 var collectionUri = UriCreator.GetCollectionsUri();
-                var request = HttpHelper.GetDefaultRequest(HttpMethod.Get, collectionUri, _deviceInfo);
-                var response = await _httpRequestProcessor.SendAsync(request);
+                var response = await _httpRequestProcessor.SendAsync(() => HttpHelper.GetDefaultRequest(HttpMethod.Get, collectionUri, _deviceInfo));
                 var json = await response.Content.ReadAsStringAsync();
 
                 if (response.StatusCode != HttpStatusCode.OK)
@@ -93,10 +91,7 @@ namespace InstaSharper.API.Processors
                     {"name", collectionName},
                     {"module_name", InstaApiConstants.COLLECTION_CREATE_MODULE}
                 };
-
-                var request =
-                    HttpHelper.GetSignedRequest(HttpMethod.Get, createCollectionUri, _deviceInfo, data);
-                var response = await _httpRequestProcessor.SendAsync(request);
+                var response = await _httpRequestProcessor.SendAsync(() => HttpHelper.GetSignedRequest(HttpMethod.Get, createCollectionUri, _deviceInfo, data));
                 var json = await response.Content.ReadAsStringAsync();
 
                 var newCollectionResponse = JsonConvert.DeserializeObject<InstaCollectionItemResponse>(json);
@@ -126,10 +121,7 @@ namespace InstaSharper.API.Processors
                     {"_csrftoken", _user.CsrfToken},
                     {"module_name", "collection_editor"}
                 };
-
-                var request =
-                    HttpHelper.GetSignedRequest(HttpMethod.Get, createCollectionUri, _deviceInfo, data);
-                var response = await _httpRequestProcessor.SendAsync(request);
+                var response = await _httpRequestProcessor.SendAsync(() => HttpHelper.GetSignedRequest(HttpMethod.Get, createCollectionUri, _deviceInfo, data));
                 var json = await response.Content.ReadAsStringAsync();
                 if (response.StatusCode == HttpStatusCode.OK)
                     return Result.Success(true);
@@ -162,10 +154,7 @@ namespace InstaSharper.API.Processors
                     {"_uid", _user.LoggedInUder.Pk},
                     {"_csrftoken", _user.CsrfToken}
                 };
-
-                var request =
-                    HttpHelper.GetSignedRequest(HttpMethod.Get, editCollectionUri, _deviceInfo, data);
-                var response = await _httpRequestProcessor.SendAsync(request);
+                var response = await _httpRequestProcessor.SendAsync(() => HttpHelper.GetSignedRequest(HttpMethod.Get, editCollectionUri, _deviceInfo, data));
                 var json = await response.Content.ReadAsStringAsync();
                 if (response.StatusCode != HttpStatusCode.OK)
                     return Result.UnExpectedResponse<InstaCollectionItem>(response, json);

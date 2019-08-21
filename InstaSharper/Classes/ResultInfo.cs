@@ -4,6 +4,8 @@ namespace InstaSharper.Classes
 {
     public class ResultInfo
     {
+        public ResultInfo()
+        { }
         public ResultInfo(string message)
         {
             Message = message;

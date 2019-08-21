@@ -24,12 +24,12 @@ namespace InstaSharper.API.Processors
         private readonly UserSessionData _user;
 
         public UserProfileProcessor(AndroidDevice deviceInfo, UserSessionData user,
-            IHttpRequestProcessor httpRequestProcessor, IInstaLogger logger)
+            IHttpRequestProcessor httpRequestProcessor, Func<object, IInstaLogger> loggerFactory)
         {
             _deviceInfo = deviceInfo;
             _user = user;
             _httpRequestProcessor = httpRequestProcessor;
-            _logger = logger;
+            _logger = loggerFactory(this);
         }
 
         public async Task<IResult<InstaUserShort>> SetAccountPrivateAsync()
@@ -47,12 +47,14 @@ namespace InstaSharper.API.Processors
                     JsonConvert.SerializeObject(fields));
                 var payload = JsonConvert.SerializeObject(fields);
                 var signature = $"{hash}.{Uri.EscapeDataString(payload)}";
-                var request = HttpHelper.GetDefaultRequest(HttpMethod.Post, instaUri, _deviceInfo);
-                request.Content = new FormUrlEncodedContent(fields);
-                request.Properties.Add(InstaApiConstants.HEADER_IG_SIGNATURE, signature);
-                request.Properties.Add(InstaApiConstants.HEADER_IG_SIGNATURE_KEY_VERSION,
-                    InstaApiConstants.IG_SIGNATURE_KEY_VERSION);
-                var response = await _httpRequestProcessor.SendAsync(request);
+                var response = await _httpRequestProcessor.SendAsync(() =>
+                {
+                    var request = HttpHelper.GetDefaultRequest(HttpMethod.Post, instaUri, _deviceInfo);
+                    request.Content = new FormUrlEncodedContent(fields);
+                    request.Properties.Add(InstaApiConstants.HEADER_IG_SIGNATURE, signature);
+                    request.Properties.Add(InstaApiConstants.HEADER_IG_SIGNATURE_KEY_VERSION, InstaApiConstants.IG_SIGNATURE_KEY_VERSION);
+                    return request;
+                });
                 var json = await response.Content.ReadAsStringAsync();
                 if (response.StatusCode != HttpStatusCode.OK)
                     return Result.UnExpectedResponse<InstaUserShort>(response, json);
@@ -85,12 +87,14 @@ namespace InstaSharper.API.Processors
                     JsonConvert.SerializeObject(fields));
                 var payload = JsonConvert.SerializeObject(fields);
                 var signature = $"{hash}.{Uri.EscapeDataString(payload)}";
-                var request = HttpHelper.GetDefaultRequest(HttpMethod.Post, instaUri, _deviceInfo);
-                request.Content = new FormUrlEncodedContent(fields);
-                request.Properties.Add(InstaApiConstants.HEADER_IG_SIGNATURE, signature);
-                request.Properties.Add(InstaApiConstants.HEADER_IG_SIGNATURE_KEY_VERSION,
-                    InstaApiConstants.IG_SIGNATURE_KEY_VERSION);
-                var response = await _httpRequestProcessor.SendAsync(request);
+                var response = await _httpRequestProcessor.SendAsync(() =>
+                {
+                    var request = HttpHelper.GetDefaultRequest(HttpMethod.Post, instaUri, _deviceInfo);
+                    request.Content = new FormUrlEncodedContent(fields);
+                    request.Properties.Add(InstaApiConstants.HEADER_IG_SIGNATURE, signature);
+                    request.Properties.Add(InstaApiConstants.HEADER_IG_SIGNATURE_KEY_VERSION, InstaApiConstants.IG_SIGNATURE_KEY_VERSION);
+                    return request;
+                });
                 var json = await response.Content.ReadAsStringAsync();
                 if (response.StatusCode == HttpStatusCode.OK)
                 {
@@ -129,9 +133,7 @@ namespace InstaSharper.API.Processors
                     {"new_password1", newPassword},
                     {"new_password2", newPassword}
                 };
-
-                var request = HttpHelper.GetSignedRequest(HttpMethod.Get, changePasswordUri, _deviceInfo, data);
-                var response = await _httpRequestProcessor.SendAsync(request);
+                var response = await _httpRequestProcessor.SendAsync(() => HttpHelper.GetSignedRequest(HttpMethod.Get, changePasswordUri, _deviceInfo, data));
                 var json = await response.Content.ReadAsStringAsync();
                 if (response.StatusCode == HttpStatusCode.OK)
                     return Result.Success(true);

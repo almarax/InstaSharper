@@ -3,17 +3,20 @@ using System.Net.Http;
 using InstaSharper.Classes;
 using InstaSharper.Classes.Android.DeviceInfo;
 using InstaSharper.Logger;
+using Polly;
 
 namespace InstaSharper.API.Builder
 {
     public class InstaApiBuilder : IInstaApiBuilder
     {
-        private IRequestDelay _delay = RequestDelay.Empty();
+        private int _minDelay = 0;
+        private int _maxDelay = 0;
+        private Policy _retryPolicy = Policy.NoOpAsync();
         private AndroidDevice _device;
         private HttpClient _httpClient;
         private HttpClientHandler _httpHandler = new HttpClientHandler();
         private IHttpRequestProcessor _httpRequestProcessor;
-        private IInstaLogger _logger;
+        private Func<object, IInstaLogger> _loggerFactory;
         private ApiRequestMessage _requestMessage;
         private UserSessionData _user;
 
@@ -56,22 +59,22 @@ namespace InstaSharper.API.Builder
 
             if (_httpRequestProcessor == null)
                 _httpRequestProcessor =
-                    new HttpRequestProcessor(_delay, _httpClient, _httpHandler, _requestMessage, _logger);
+                    new HttpRequestProcessor(_minDelay, _maxDelay, _httpClient, _httpHandler, _requestMessage, _loggerFactory, _retryPolicy);
 
-            var instaApi = new InstaApi(_user, _logger, _device, _httpRequestProcessor);
+            var instaApi = new InstaApi(_user, _loggerFactory, _device, _httpRequestProcessor);
             return instaApi;
         }
 
         /// <summary>
         ///     Use custom logger
         /// </summary>
-        /// <param name="logger">IInstaLogger implementation</param>
+        /// <param name="loggerFactory">IInstaLogger implementation</param>
         /// <returns>
         ///     API Builder
         /// </returns>
-        public IInstaApiBuilder UseLogger(IInstaLogger logger)
+        public IInstaApiBuilder UseLogger(Func<object, IInstaLogger> loggerFactory)
         {
-            _logger = logger;
+            _loggerFactory = loggerFactory;
             return this;
         }
 
@@ -137,12 +140,24 @@ namespace InstaSharper.API.Builder
         /// <returns>
         ///     API Builder
         /// </returns>
-        public IInstaApiBuilder SetRequestDelay(IRequestDelay delay)
+        public IInstaApiBuilder SetRequestDelay(int minDelay, int maxDelay)
         {
-            _delay = delay;
+            _minDelay = minDelay;
+            _maxDelay = maxDelay;
             return this;
         }
-
+        /// <summary>
+        ///     Set Polly retry policy
+        /// </summary>
+        /// <param name="delay">policy</param>
+        /// <returns>
+        ///     API Builder
+        /// </returns>
+        public IInstaApiBuilder SetRetryPolicy(Policy retryPolicy)
+        {
+            _retryPolicy = retryPolicy;
+            return this;
+        }
         /// <summary>
         ///     Creates the builder.
         /// </summary>

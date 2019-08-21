@@ -19,5 +19,6 @@ namespace InstaSharper.Classes
         TemporarilyBlocked = 14,
         CantLikeMedia = 15,
         InvalidChallengeCode = 16,
+        CommentingIsOff = 17
     }
 }

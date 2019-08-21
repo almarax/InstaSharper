@@ -24,50 +24,51 @@ namespace InstaSharper.API.Processors
         private readonly UserSessionData _user;
 
         public FeedProcessor(AndroidDevice deviceInfo, UserSessionData user, IHttpRequestProcessor httpRequestProcessor,
-            IInstaLogger logger)
+            Func<object, IInstaLogger> loggerFactory)
         {
             _deviceInfo = deviceInfo;
             _user = user;
             _httpRequestProcessor = httpRequestProcessor;
-            _logger = logger;
+            _logger = loggerFactory(this);
         }
 
         public async Task<IResult<InstaTagFeed>> GetTagFeedAsync(string tag, PaginationParameters paginationParameters)
         {
-            var tagFeed = new InstaTagFeed();
+            var feed = new InstaTagFeed();
             try
             {
                 var userFeedUri = UriCreator.GetTagFeedUri(tag, paginationParameters.NextId);
-                var request = HttpHelper.GetDefaultRequest(HttpMethod.Get, userFeedUri, _deviceInfo);
-                var response = await _httpRequestProcessor.SendAsync(request);
+                var response = await _httpRequestProcessor.SendAsync(() => HttpHelper.GetDefaultRequest(HttpMethod.Get, userFeedUri, _deviceInfo));
                 var json = await response.Content.ReadAsStringAsync();
                 if (response.StatusCode != HttpStatusCode.OK)
                     return Result.UnExpectedResponse<InstaTagFeed>(response, json);
                 var feedResponse = JsonConvert.DeserializeObject<InstaTagFeedResponse>(json,
                     new InstaTagFeedDataConverter());
-                tagFeed = ConvertersFabric.Instance.GetTagFeedConverter(feedResponse).Convert();
+                feed = ConvertersFabric.Instance.GetTagFeedConverter(feedResponse).Convert();
 
                 paginationParameters.NextId = feedResponse.NextMaxId;
                 paginationParameters.PagesLoaded++;
+                paginationParameters.ItemsLoaded += feed.Medias.Count;
 
                 while (feedResponse.MoreAvailable
                        && !string.IsNullOrEmpty(paginationParameters.NextId)
+                       && paginationParameters.ItemsLoaded < paginationParameters.MaximumItemsToLoad
                        && paginationParameters.PagesLoaded < paginationParameters.MaximumPagesToLoad)
                 {
                     var nextFeed = await GetTagFeedAsync(tag, paginationParameters);
                     if (!nextFeed.Succeeded)
-                        return Result.Fail(nextFeed.Info, tagFeed);
-                    tagFeed.NextId = paginationParameters.NextId = nextFeed.Value.NextId;
-                    tagFeed.Medias.AddRange(nextFeed.Value.Medias);
-                    tagFeed.Stories.AddRange(nextFeed.Value.Stories);
+                        return Result.Fail(nextFeed.Info, feed);
+                    feed.NextId = paginationParameters.NextId = nextFeed.Value.NextId;
+                    feed.Medias.AddRange(nextFeed.Value.Medias);
+                    feed.Stories.AddRange(nextFeed.Value.Stories);
                 }
 
-                return Result.Success(tagFeed);
+                return Result.Success(feed);
             }
             catch (Exception exception)
             {
                 _logger?.LogException(exception);
-                return Result.Fail(exception, tagFeed);
+                return Result.Fail(exception, feed);
             }
         }
 
@@ -77,8 +78,7 @@ namespace InstaSharper.API.Processors
             try
             {
                 var userFeedUri = UriCreator.GetUserFeedUri(paginationParameters.NextId);
-                var request = HttpHelper.GetDefaultRequest(HttpMethod.Post, userFeedUri, _deviceInfo);
-                var response = await _httpRequestProcessor.SendAsync(request);
+                var response = await _httpRequestProcessor.SendAsync(() => HttpHelper.GetDefaultRequest(HttpMethod.Get, userFeedUri, _deviceInfo));
                 var json = await response.Content.ReadAsStringAsync();
                 if (response.StatusCode != HttpStatusCode.OK)
                     return Result.UnExpectedResponse<InstaFeed>(response, json);
@@ -88,9 +88,11 @@ namespace InstaSharper.API.Processors
                 feed = ConvertersFabric.Instance.GetFeedConverter(feedResponse).Convert();
                 paginationParameters.NextId = feed.NextId;
                 paginationParameters.PagesLoaded++;
+                paginationParameters.ItemsLoaded += feed.Medias.Count;
 
                 while (feedResponse.MoreAvailable
                        && !string.IsNullOrEmpty(paginationParameters.NextId)
+                       && paginationParameters.ItemsLoaded < paginationParameters.MaximumItemsToLoad
                        && paginationParameters.PagesLoaded < paginationParameters.MaximumPagesToLoad)
                 {
                     var nextFeed = await GetUserTimelineFeedAsync(paginationParameters);
@@ -115,44 +117,45 @@ namespace InstaSharper.API.Processors
 
         public async Task<IResult<InstaExploreFeed>> GetExploreFeedAsync(PaginationParameters paginationParameters)
         {
-            var exploreFeed = new InstaExploreFeed();
+            var feed = new InstaExploreFeed();
             try
             {
                 var exploreUri = UriCreator.GetExploreUri(paginationParameters.NextId);
-                var request = HttpHelper.GetDefaultRequest(HttpMethod.Get, exploreUri, _deviceInfo);
-                var response = await _httpRequestProcessor.SendAsync(request);
+                var response = await _httpRequestProcessor.SendAsync(() => HttpHelper.GetDefaultRequest(HttpMethod.Get, exploreUri, _deviceInfo));
                 var json = await response.Content.ReadAsStringAsync();
                 if (response.StatusCode != HttpStatusCode.OK)
                     return Result.UnExpectedResponse<InstaExploreFeed>(response, json);
                 var feedResponse = JsonConvert.DeserializeObject<InstaExploreFeedResponse>(json,
                     new InstaExploreFeedDataConverter());
-                exploreFeed = ConvertersFabric.Instance.GetExploreFeedConverter(feedResponse).Convert();
+                feed = ConvertersFabric.Instance.GetExploreFeedConverter(feedResponse).Convert();
                 var nextId = feedResponse.Items.Medias.LastOrDefault(media => !string.IsNullOrEmpty(media.NextMaxId))
                     ?.NextMaxId;
-                exploreFeed.Medias.PageSize = feedResponse.ResultsCount;
+                feed.Medias.PageSize = feedResponse.ResultsCount;
                 paginationParameters.NextId = nextId;
-                exploreFeed.NextId = nextId;
+                feed.NextId = nextId;
                 while (feedResponse.MoreAvailable
                        && !string.IsNullOrEmpty(paginationParameters.NextId)
+                       && paginationParameters.ItemsLoaded < paginationParameters.MaximumItemsToLoad
                        && paginationParameters.PagesLoaded < paginationParameters.MaximumPagesToLoad)
                 {
                     var nextFeed = await GetExploreFeedAsync(paginationParameters);
                     if (!nextFeed.Succeeded)
-                        return Result.Fail(nextFeed.Info, exploreFeed);
+                        return Result.Fail(nextFeed.Info, feed);
                     nextId = feedResponse.Items.Medias.LastOrDefault(media => !string.IsNullOrEmpty(media.NextMaxId))
                         ?.NextMaxId;
-                    exploreFeed.NextId = paginationParameters.NextId = nextId;
+                    feed.NextId = paginationParameters.NextId = nextId;
                     paginationParameters.PagesLoaded++;
-                    exploreFeed.Medias.AddRange(nextFeed.Value.Medias);
+                    paginationParameters.ItemsLoaded += feed.Medias.Count;
+                    feed.Medias.AddRange(nextFeed.Value.Medias);
                 }
 
-                exploreFeed.Medias.Pages = paginationParameters.PagesLoaded;
-                return Result.Success(exploreFeed);
+                feed.Medias.Pages = paginationParameters.PagesLoaded;
+                return Result.Success(feed);
             }
             catch (Exception exception)
             {
                 _logger?.LogException(exception);
-                return Result.Fail(exception, exploreFeed);
+                return Result.Fail(exception, feed);
             }
         }
 
@@ -173,8 +176,7 @@ namespace InstaSharper.API.Processors
         public async Task<IResult<InstaMediaList>> GetLikeFeedAsync(PaginationParameters paginationParameters)
         {
             var instaUri = UriCreator.GetUserLikeFeedUri(paginationParameters.NextId);
-            var request = HttpHelper.GetDefaultRequest(HttpMethod.Get, instaUri, _deviceInfo);
-            var response = await _httpRequestProcessor.SendAsync(request);
+            var response = await _httpRequestProcessor.SendAsync(() => HttpHelper.GetDefaultRequest(HttpMethod.Get, instaUri, _deviceInfo));
             var json = await response.Content.ReadAsStringAsync();
             if (response.StatusCode != HttpStatusCode.OK)
                 return Result.UnExpectedResponse<InstaMediaList>(response, json);
@@ -185,6 +187,7 @@ namespace InstaSharper.API.Processors
             mediaList.NextId = paginationParameters.NextId = mediaResponse.NextMaxId;
             while (mediaResponse.MoreAvailable
                    && !string.IsNullOrEmpty(paginationParameters.NextId)
+                   && paginationParameters.ItemsLoaded < paginationParameters.MaximumItemsToLoad
                    && paginationParameters.PagesLoaded < paginationParameters.MaximumPagesToLoad)
             {
                 var result = await GetLikeFeedAsync(paginationParameters);
@@ -192,6 +195,7 @@ namespace InstaSharper.API.Processors
                     return Result.Fail(result.Info, mediaList);
 
                 paginationParameters.PagesLoaded++;
+                paginationParameters.ItemsLoaded += mediaList.Count;
                 mediaList.NextId = paginationParameters.NextId = result.Value.NextId;
                 mediaList.AddRange(result.Value);
             }
@@ -204,8 +208,7 @@ namespace InstaSharper.API.Processors
         private async Task<IResult<InstaRecentActivityResponse>> GetFollowingActivityWithMaxIdAsync(string maxId)
         {
             var uri = UriCreator.GetFollowingRecentActivityUri(maxId);
-            var request = HttpHelper.GetDefaultRequest(HttpMethod.Get, uri, _deviceInfo);
-            var response = await _httpRequestProcessor.SendAsync(request);
+            var response = await _httpRequestProcessor.SendAsync(() => HttpHelper.GetDefaultRequest(HttpMethod.Get, uri, _deviceInfo));
             var json = await response.Content.ReadAsStringAsync();
             if (response.StatusCode != HttpStatusCode.OK)
                 return Result.UnExpectedResponse<InstaRecentActivityResponse>(response, json);
@@ -217,36 +220,38 @@ namespace InstaSharper.API.Processors
         private async Task<IResult<InstaActivityFeed>> GetRecentActivityInternalAsync(Uri uri,
             PaginationParameters paginationParameters)
         {
-            var request = HttpHelper.GetDefaultRequest(HttpMethod.Get, uri, _deviceInfo);
-            var response = await _httpRequestProcessor.SendAsync(request, HttpCompletionOption.ResponseContentRead);
-            var activityFeed = new InstaActivityFeed();
+            var response = await _httpRequestProcessor.SendAsync(() => HttpHelper.GetDefaultRequest(HttpMethod.Get, uri, _deviceInfo),
+                HttpCompletionOption.ResponseContentRead);
+            var feed = new InstaActivityFeed();
             var json = await response.Content.ReadAsStringAsync();
             if (response.StatusCode != HttpStatusCode.OK)
                 return Result.UnExpectedResponse<InstaActivityFeed>(response, json);
             var feedPage = JsonConvert.DeserializeObject<InstaRecentActivityResponse>(json,
                 new InstaRecentActivityConverter());
-            activityFeed.IsOwnActivity = feedPage.IsOwnActivity;
+            feed.IsOwnActivity = feedPage.IsOwnActivity;
             var nextId = feedPage.NextMaxId;
-            activityFeed.Items.AddRange(
+            feed.Items.AddRange(
                 feedPage.Stories.Select(ConvertersFabric.Instance.GetSingleRecentActivityConverter)
                     .Select(converter => converter.Convert()));
             paginationParameters.PagesLoaded++;
-            activityFeed.NextId = paginationParameters.NextId = feedPage.NextMaxId;
+            feed.NextId = paginationParameters.NextId = feedPage.NextMaxId;
             while (!string.IsNullOrEmpty(nextId)
+                   && paginationParameters.ItemsLoaded < paginationParameters.MaximumItemsToLoad
                    && paginationParameters.PagesLoaded < paginationParameters.MaximumPagesToLoad)
             {
                 var nextFollowingFeed = await GetFollowingActivityWithMaxIdAsync(nextId);
                 if (!nextFollowingFeed.Succeeded)
-                    return Result.Fail(nextFollowingFeed.Info, activityFeed);
+                    return Result.Fail(nextFollowingFeed.Info, feed);
                 nextId = nextFollowingFeed.Value.NextMaxId;
-                activityFeed.Items.AddRange(
+                feed.Items.AddRange(
                     feedPage.Stories.Select(ConvertersFabric.Instance.GetSingleRecentActivityConverter)
                         .Select(converter => converter.Convert()));
                 paginationParameters.PagesLoaded++;
-                activityFeed.NextId = paginationParameters.NextId = nextId;
+                paginationParameters.ItemsLoaded += feed.Items.Count;
+                feed.NextId = paginationParameters.NextId = nextId;
             }
 
-            return Result.Success(activityFeed);
+            return Result.Success(feed);
         }
     }
 }

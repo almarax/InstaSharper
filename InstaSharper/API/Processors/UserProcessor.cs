@@ -24,12 +24,12 @@ namespace InstaSharper.API.Processors
         private readonly UserSessionData _user;
 
         public UserProcessor(AndroidDevice deviceInfo, UserSessionData user, IHttpRequestProcessor httpRequestProcessor,
-            IInstaLogger logger)
+            Func<object, IInstaLogger> loggerFactory)
         {
             _deviceInfo = deviceInfo;
             _user = user;
             _httpRequestProcessor = httpRequestProcessor;
-            _logger = logger;
+            _logger = loggerFactory(this);
         }
 
         public async Task<IResult<InstaMediaList>> GetUserMediaAsync(long userId,
@@ -39,8 +39,7 @@ namespace InstaSharper.API.Processors
             try
             {
                 var instaUri = UriCreator.GetUserMediaListUri(userId, paginationParameters.NextId);
-                var request = HttpHelper.GetDefaultRequest(HttpMethod.Get, instaUri, _deviceInfo);
-                var response = await _httpRequestProcessor.SendAsync(request);
+                var response = await _httpRequestProcessor.SendAsync(() => HttpHelper.GetDefaultRequest(HttpMethod.Get, instaUri, _deviceInfo));
                 var json = await response.Content.ReadAsStringAsync();
                 if (response.StatusCode != HttpStatusCode.OK)
                     return Result.UnExpectedResponse<InstaMediaList>(response, json);
@@ -50,9 +49,11 @@ namespace InstaSharper.API.Processors
                 mediaList = ConvertersFabric.Instance.GetMediaListConverter(mediaResponse).Convert();
                 mediaList.NextId = paginationParameters.NextId = mediaResponse.NextMaxId;
                 paginationParameters.PagesLoaded++;
+                paginationParameters.ItemsLoaded += mediaList.Count;
 
                 while (mediaResponse.MoreAvailable
                        && !string.IsNullOrEmpty(paginationParameters.NextId)
+                       && paginationParameters.ItemsLoaded < paginationParameters.MaximumItemsToLoad
                        && paginationParameters.PagesLoaded < paginationParameters.MaximumPagesToLoad)
                 {
                     var nextMedia = await GetUserMediaAsync(userId, paginationParameters);
@@ -78,13 +79,17 @@ namespace InstaSharper.API.Processors
             try
             {
                 var userUri = UriCreator.GetUserUri(username);
-                var request = HttpHelper.GetDefaultRequest(HttpMethod.Get, userUri, _deviceInfo);
-                request.Properties.Add(new KeyValuePair<string, object>(InstaApiConstants.HEADER_TIMEZONE,
+                
+                var response = await _httpRequestProcessor.SendAsync(() =>
+                {
+                    var request = HttpHelper.GetDefaultRequest(HttpMethod.Get, userUri, _deviceInfo);
+                    request.Properties.Add(new KeyValuePair<string, object>(InstaApiConstants.HEADER_TIMEZONE,
                     InstaApiConstants.TIMEZONE_OFFSET.ToString()));
-                request.Properties.Add(new KeyValuePair<string, object>(InstaApiConstants.HEADER_COUNT, "1"));
-                request.Properties.Add(
-                    new KeyValuePair<string, object>(InstaApiConstants.HEADER_RANK_TOKEN, _user.RankToken));
-                var response = await _httpRequestProcessor.SendAsync(request);
+                    request.Properties.Add(new KeyValuePair<string, object>(InstaApiConstants.HEADER_COUNT, "1"));
+                    request.Properties.Add(
+                        new KeyValuePair<string, object>(InstaApiConstants.HEADER_RANK_TOKEN, _user.RankToken));
+                    return request;
+                });
                 var json = await response.Content.ReadAsStringAsync();
                 if (response.StatusCode != HttpStatusCode.OK)
                     return Result.UnExpectedResponse<InstaUser>(response, json);
@@ -115,8 +120,7 @@ namespace InstaSharper.API.Processors
             try
             {
                 var userUri = UriCreator.GetUserUri(searchPattern);
-                var request = HttpHelper.GetDefaultRequest(HttpMethod.Get, userUri, _deviceInfo);
-                var response = await _httpRequestProcessor.SendAsync(request);
+                var response = await _httpRequestProcessor.SendAsync(() => HttpHelper.GetDefaultRequest(HttpMethod.Get, userUri, _deviceInfo));
                 var json = await response.Content.ReadAsStringAsync();
                 if (response.StatusCode != HttpStatusCode.OK)
                     return Result.UnExpectedResponse<InstaUserShortList>(response, json);
@@ -173,9 +177,12 @@ namespace InstaSharper.API.Processors
                     {"_uid", _user.LoggedInUder.Pk.ToString()},
                     {"_csrftoken", _user.CsrfToken}
                 };
-                var request = HttpHelper.GetDefaultRequest(HttpMethod.Post, instaUri, _deviceInfo);
-                request.Content = new FormUrlEncodedContent(fields);
-                var response = await _httpRequestProcessor.SendAsync(request);
+                var response = await _httpRequestProcessor.SendAsync(() =>
+                {
+                    var request = HttpHelper.GetDefaultRequest(HttpMethod.Post, instaUri, _deviceInfo);
+                    request.Content = new FormUrlEncodedContent(fields);
+                    return request;
+                });
                 var json = await response.Content.ReadAsStringAsync();
                 if (response.StatusCode != HttpStatusCode.OK)
                     return Result.UnExpectedResponse<InstaCurrentUser>(response, json);
@@ -211,9 +218,11 @@ namespace InstaSharper.API.Processors
                     followersResponse.Value.Items?.Select(ConvertersFabric.Instance.GetUserShortConverter)
                         .Select(converter => converter.Convert()));
                 followers.NextId = followersResponse.Value.NextMaxId;
+                paginationParameters.ItemsLoaded += followersResponse.Value.Items.Count;
 
                 var pagesLoaded = 1;
                 while (!string.IsNullOrEmpty(followersResponse.Value.NextMaxId)
+                       && paginationParameters.ItemsLoaded < paginationParameters.MaximumItemsToLoad
                        && pagesLoaded < paginationParameters.MaximumPagesToLoad)
                 {
                     var nextFollowersUri =
@@ -254,8 +263,11 @@ namespace InstaSharper.API.Processors
                     userListResponse.Value.Items.Select(ConvertersFabric.Instance.GetUserShortConverter)
                         .Select(converter => converter.Convert()));
                 following.NextId = userListResponse.Value.NextMaxId;
+                paginationParameters.ItemsLoaded += userListResponse.Value.Items.Count;
+
                 var pages = 1;
                 while (!string.IsNullOrEmpty(following.NextId)
+                       && paginationParameters.ItemsLoaded < paginationParameters.MaximumItemsToLoad
                        && pages < paginationParameters.MaximumPagesToLoad)
                 {
                     var nextUri =
@@ -299,8 +311,7 @@ namespace InstaSharper.API.Processors
             try
             {
                 var uri = UriCreator.GetUserTagsUri(userId, _user.RankToken, paginationParameters.NextId);
-                var request = HttpHelper.GetDefaultRequest(HttpMethod.Get, uri, _deviceInfo);
-                var response = await _httpRequestProcessor.SendAsync(request);
+                var response = await _httpRequestProcessor.SendAsync(() => HttpHelper.GetDefaultRequest(HttpMethod.Get, uri, _deviceInfo));
                 var json = await response.Content.ReadAsStringAsync();
                 if (response.StatusCode != HttpStatusCode.OK) return Result.Fail("", (InstaMediaList) null);
                 var mediaResponse = JsonConvert.DeserializeObject<InstaMediaListResponse>(json,
@@ -310,9 +321,11 @@ namespace InstaSharper.API.Processors
                         .Select(converter => converter.Convert()));
                 userTags.NextId = paginationParameters.NextId = mediaResponse.NextMaxId;
                 paginationParameters.PagesLoaded++;
+                paginationParameters.ItemsLoaded += userTags.Count;
 
                 while (mediaResponse.MoreAvailable
                        && !string.IsNullOrEmpty(paginationParameters.NextId)
+                       && paginationParameters.ItemsLoaded < paginationParameters.MaximumItemsToLoad
                        && paginationParameters.PagesLoaded < paginationParameters.MaximumPagesToLoad)
                 {
                     var nextMedia = await GetUserTagsAsync(userId, paginationParameters);
@@ -357,8 +370,7 @@ namespace InstaSharper.API.Processors
             try
             {
                 var userUri = UriCreator.GetUserFriendshipUri(userId);
-                var request = HttpHelper.GetDefaultRequest(HttpMethod.Get, userUri, _deviceInfo);
-                var response = await _httpRequestProcessor.SendAsync(request);
+                var response = await _httpRequestProcessor.SendAsync(() => HttpHelper.GetDefaultRequest(HttpMethod.Get, userUri, _deviceInfo));
                 var json = await response.Content.ReadAsStringAsync();
                 if (response.StatusCode != HttpStatusCode.OK)
                     return Result.UnExpectedResponse<InstaFriendshipStatus>(response, json);
@@ -377,8 +389,7 @@ namespace InstaSharper.API.Processors
         {
             try
             {
-                var request = HttpHelper.GetDefaultRequest(HttpMethod.Get, userUri, _deviceInfo);
-                var response = await _httpRequestProcessor.SendAsync(request);
+                var response = await _httpRequestProcessor.SendAsync(() => HttpHelper.GetDefaultRequest(HttpMethod.Get, userUri, _deviceInfo));
                 var json = await response.Content.ReadAsStringAsync();
                 if (response.StatusCode != HttpStatusCode.OK)
                     return Result.UnExpectedResponse<InstaUserInfo>(response, json);
@@ -405,9 +416,7 @@ namespace InstaSharper.API.Processors
                     {"user_id", userId.ToString()},
                     {"radio_type", "wifi-none"}
                 };
-                var request =
-                    HttpHelper.GetSignedRequest(HttpMethod.Post, instaUri, _deviceInfo, fields);
-                var response = await _httpRequestProcessor.SendAsync(request);
+                var response = await _httpRequestProcessor.SendAsync(() => HttpHelper.GetSignedRequest(HttpMethod.Post, instaUri, _deviceInfo, fields));
                 var json = await response.Content.ReadAsStringAsync();
                 if (response.StatusCode != HttpStatusCode.OK || string.IsNullOrEmpty(json))
                     return Result.UnExpectedResponse<InstaFriendshipStatus>(response, json);
@@ -435,9 +444,7 @@ namespace InstaSharper.API.Processors
                     {"user_id", userId.ToString()},
                     {"radio_type", "wifi-none"}
                 };
-                var request =
-                    HttpHelper.GetSignedRequest(HttpMethod.Post, instaUri, _deviceInfo, fields);
-                var response = await _httpRequestProcessor.SendAsync(request);
+                var response = await _httpRequestProcessor.SendAsync(() => HttpHelper.GetSignedRequest(HttpMethod.Post, instaUri, _deviceInfo, fields));
                 var json = await response.Content.ReadAsStringAsync();
                 if (response.StatusCode != HttpStatusCode.OK || string.IsNullOrEmpty(json))
                     return Result.UnExpectedResponse<InstaFriendshipStatus>(response, json);
@@ -455,8 +462,7 @@ namespace InstaSharper.API.Processors
 
         private async Task<IResult<InstaUserListShortResponse>> GetUserListByUriAsync(Uri uri)
         {
-            var request = HttpHelper.GetDefaultRequest(HttpMethod.Get, uri, _deviceInfo);
-            var response = await _httpRequestProcessor.SendAsync(request);
+            var response = await _httpRequestProcessor.SendAsync(() => HttpHelper.GetDefaultRequest(HttpMethod.Get, uri, _deviceInfo));
             var json = await response.Content.ReadAsStringAsync();
             if (response.StatusCode != HttpStatusCode.OK)
                 return Result.UnExpectedResponse<InstaUserListShortResponse>(response, json);

@@ -20,6 +20,8 @@ namespace InstaSharper.API
 
         #endregion
 
+        void SetHttpDelay(int min, int max);
+
         /// <summary>
         ///     Get current state info as Memory stream
         /// </summary>
@@ -136,6 +138,15 @@ namespace InstaSharper.API
         ///     <see cref="InstaMediaList" />
         /// </returns>
         Task<IResult<InstaMediaList>> GetUserMediaAsync(string username, PaginationParameters paginationParameters);
+        /// <summary>
+        ///     Get all user media by user id asynchronously
+        /// </summary>
+        /// <param name="userid">User Id (PK)</param>
+        /// <param name="paginationParameters">Pagination parameters: next id and max amount of pages to load</param>
+        /// <returns>
+        ///     <see cref="InstaMediaList" />
+        /// </returns>
+        Task<IResult<InstaMediaList>> GetUserMediaAsync(long userId, PaginationParameters paginationParameters);
 
         /// <summary>
         ///     Get media by its id asynchronously
@@ -301,6 +312,12 @@ namespace InstaSharper.API
         /// </summary>
         /// <param name="mediaId">Media id</param>
         Task<IResult<bool>> LikeMediaAsync(string mediaId);
+        
+        /// <summary>
+        ///     Like comment (of a media)
+        /// </summary>
+        /// <param name="commentId">Media id</param>
+        Task<IResult<bool>> LikeMediaCommentAsync(long commentId);
 
         /// <summary>
         ///     Remove like from media (photo or video)
@@ -338,13 +355,18 @@ namespace InstaSharper.API
         /// <param name="mediaId">Media id</param>
         /// <param name="paginationParameters">Pagination parameters: next id and max amount of pages to load</param>
         Task<IResult<InstaCommentList>>
-            GetMediaCommentsAsync(string mediaId, PaginationParameters paginationParameters);
+        GetMediaCommentsAsync(string mediaId, PaginationParameters paginationParameters);
 
         /// <summary>
         ///     Get users (short) who liked certain media. Normaly it return around 1000 last users.
         /// </summary>
         /// <param name="mediaId">Media id</param>
         Task<IResult<InstaLikersList>> GetMediaLikersAsync(string mediaId);
+
+        ///     Get users (short) who liked certain comment. Normaly it return around 1000 last users.
+        /// </summary>
+        /// <param name="commentId">Comment id</param>
+        Task<IResult<InstaLikersList>> GetMediaCommentLikersAsync(long commentId);
 
         /// <summary>
         ///     Set current account private

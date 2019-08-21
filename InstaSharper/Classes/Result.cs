@@ -120,6 +120,9 @@ namespace InstaSharper.Classes
                     case "You’re Temporarily Blocked":
                         responseType = ResponseType.TemporarilyBlocked;
                         break;
+                    case "Commenting is Off":
+                        responseType = ResponseType.CommentingIsOff;
+                        break;
                 }
 
                 switch (status.FeedbackMessage)

@@ -41,7 +41,7 @@ namespace InstaSharper.Classes.ResponseWrappers
 
         [JsonProperty("caption")] public InstaCaptionResponse Caption { get; set; }
 
-        [JsonProperty("comment_count")] public string CommentsCount { get; set; }
+        [JsonProperty("comment_count")] public int CommentsCount { get; set; }
 
         [JsonProperty("photo_of_you")] public bool PhotoOfYou { get; set; }
 

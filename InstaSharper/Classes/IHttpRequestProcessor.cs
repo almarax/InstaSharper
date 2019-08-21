@@ -10,10 +10,11 @@ namespace InstaSharper.Classes
         HttpClientHandler HttpHandler { get; }
         ApiRequestMessage RequestMessage { get; }
         HttpClient Client { get; }
-        Task<HttpResponseMessage> SendAsync(HttpRequestMessage requestMessage);
+        Task<HttpResponseMessage> SendAsync(Func<HttpRequestMessage> requestMessage);
         Task<HttpResponseMessage> GetAsync(Uri requestUri);
-        Task<HttpResponseMessage> SendAsync(HttpRequestMessage requestMessage, HttpCompletionOption completionOption);
-        Task<string> SendAndGetJsonAsync(HttpRequestMessage requestMessage, HttpCompletionOption completionOption);
+        Task<HttpResponseMessage> SendAsync(Func<HttpRequestMessage> requestMessage, HttpCompletionOption completionOption);
+        Task<string> SendAndGetJsonAsync(Func<HttpRequestMessage> requestMessage, HttpCompletionOption completionOption);
         Task<string> GeJsonAsync(Uri requestUri);
+        void SetDelay(int min, int max);
     }
 }

@@ -26,12 +26,12 @@ namespace InstaSharper.API.Processors
         private readonly UserSessionData _user;
 
         public LocationProcessor(AndroidDevice deviceInfo, UserSessionData user,
-            IHttpRequestProcessor httpRequestProcessor, IInstaLogger logger)
+            IHttpRequestProcessor httpRequestProcessor, Func<object, IInstaLogger> loggerFactory)
         {
             _deviceInfo = deviceInfo;
             _user = user;
             _httpRequestProcessor = httpRequestProcessor;
-            _logger = logger;
+            _logger = loggerFactory(this);
         }
 
         public async Task<IResult<InstaLocationShortList>> Search(double latitude, double longitude, string query)
@@ -57,8 +57,7 @@ namespace InstaSharper.API.Processors
                 if (!Uri.TryCreate(uri, fields.AsQueryString(), out var newuri))
                     return Result.Fail<InstaLocationShortList>("Unable to create uri for location search");
 
-                var request = HttpHelper.GetDefaultRequest(HttpMethod.Get, newuri, _deviceInfo);
-                var response = await _httpRequestProcessor.SendAsync(request);
+                var response = await _httpRequestProcessor.SendAsync(() => HttpHelper.GetDefaultRequest(HttpMethod.Get, newuri, _deviceInfo));
                 var json = await response.Content.ReadAsStringAsync();
                 if (response.StatusCode != HttpStatusCode.OK)
                     return Result.UnExpectedResponse<InstaLocationShortList>(response, json);
@@ -79,8 +78,7 @@ namespace InstaSharper.API.Processors
             try
             {
                 var uri = _getFeedUriCreator.GetUri(locationId, paginationParameters.NextId);
-                var request = HttpHelper.GetDefaultRequest(HttpMethod.Get, uri, _deviceInfo);
-                var response = await _httpRequestProcessor.SendAsync(request);
+                var response = await _httpRequestProcessor.SendAsync(() => HttpHelper.GetDefaultRequest(HttpMethod.Get, uri, _deviceInfo));
                 var json = await response.Content.ReadAsStringAsync();
                 if (response.StatusCode != HttpStatusCode.OK)
                     return Result.UnExpectedResponse<InstaLocationFeed>(response, json);

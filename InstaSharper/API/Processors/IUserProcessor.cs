@@ -6,7 +6,7 @@ namespace InstaSharper.API.Processors
 {
     public interface IUserProcessor
     {
-        Task<IResult<InstaMediaList>> GetUserMediaAsync(long username, PaginationParameters paginationParameters);
+        Task<IResult<InstaMediaList>> GetUserMediaAsync(long userId, PaginationParameters paginationParameters);
         Task<IResult<InstaUser>> GetUserAsync(string username);
         Task<IResult<InstaUserShortList>> SearchUsersAsync(string searchPattern);
         Task<IResult<InstaCurrentUser>> GetCurrentUserAsync();
@@ -18,14 +18,14 @@ namespace InstaSharper.API.Processors
             PaginationParameters paginationParameters, string searchQuery);
 
         Task<IResult<InstaUserShortList>> GetCurrentUserFollowersAsync(PaginationParameters paginationParameters);
-        Task<IResult<InstaUserShortList>> GetCurrentUserFollowingAsync(PaginationParameters paginationParameters);
+       Task<IResult<InstaUserShortList>> GetCurrentUserFollowingAsync(PaginationParameters paginationParameters);
         Task<IResult<InstaMediaList>> GetUserTagsAsync(long username, PaginationParameters paginationParameters);
         Task<IResult<InstaFriendshipStatus>> FollowUserAsync(long userId);
         Task<IResult<InstaFriendshipStatus>> UnFollowUserAsync(long userId);
         Task<IResult<InstaFriendshipStatus>> BlockUserAsync(long userId);
         Task<IResult<InstaFriendshipStatus>> UnBlockUserAsync(long userId);
         Task<IResult<InstaFriendshipStatus>> GetFriendshipStatusAsync(long userId);
-        Task<IResult<InstaUserInfo>> GetUserInfoByIdAsync(long pk);
+        Task<IResult<InstaUserInfo>> GetUserInfoByIdAsync(long userId);
         Task<IResult<InstaUserInfo>> GetUserInfoByUsernameAsync(string username);
     }
 }

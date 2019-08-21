@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -23,12 +24,12 @@ namespace InstaSharper.API.Processors
         private readonly UserSessionData _user;
 
         public CommentProcessor(AndroidDevice deviceInfo, UserSessionData user,
-            IHttpRequestProcessor httpRequestProcessor, IInstaLogger logger)
+            IHttpRequestProcessor httpRequestProcessor, Func<object, IInstaLogger> loggerFactory)
         {
             _deviceInfo = deviceInfo;
             _user = user;
             _httpRequestProcessor = httpRequestProcessor;
-            _logger = logger;
+            _logger = loggerFactory(this);
         }
 
         public async Task<IResult<InstaCommentList>> GetMediaCommentsAsync(string mediaId,
@@ -37,8 +38,7 @@ namespace InstaSharper.API.Processors
             try
             {
                 var commentsUri = UriCreator.GetMediaCommentsUri(mediaId, paginationParameters.NextId);
-                var request = HttpHelper.GetDefaultRequest(HttpMethod.Get, commentsUri, _deviceInfo);
-                var response = await _httpRequestProcessor.SendAsync(request);
+                var response = await _httpRequestProcessor.SendAsync(() => HttpHelper.GetDefaultRequest(HttpMethod.Get, commentsUri, _deviceInfo));
                 var json = await response.Content.ReadAsStringAsync();
                 if (response.StatusCode != HttpStatusCode.OK)
                     return Result.UnExpectedResponse<InstaCommentList>(response, json);
@@ -90,9 +90,7 @@ namespace InstaSharper.API.Processors
                     {"containermodule", "comments_feed_timeline"},
                     {"radio_type", "wifi-none"}
                 };
-                var request =
-                    HttpHelper.GetSignedRequest(HttpMethod.Post, instaUri, _deviceInfo, fields);
-                var response = await _httpRequestProcessor.SendAsync(request);
+                var response = await _httpRequestProcessor.SendAsync(() => HttpHelper.GetSignedRequest(HttpMethod.Post, instaUri, _deviceInfo, fields));
                 var json = await response.Content.ReadAsStringAsync();
                 if (response.StatusCode != HttpStatusCode.OK)
                     return Result.UnExpectedResponse<InstaComment>(response, json);
@@ -119,9 +117,7 @@ namespace InstaSharper.API.Processors
                     {"_uid", _user.LoggedInUder.Pk.ToString()},
                     {"_csrftoken", _user.CsrfToken}
                 };
-                var request =
-                    HttpHelper.GetSignedRequest(HttpMethod.Post, instaUri, _deviceInfo, fields);
-                var response = await _httpRequestProcessor.SendAsync(request);
+                var response = await _httpRequestProcessor.SendAsync(() => HttpHelper.GetSignedRequest(HttpMethod.Post, instaUri, _deviceInfo, fields));
                 var json = await response.Content.ReadAsStringAsync();
                 return response.StatusCode == HttpStatusCode.OK
                     ? Result.Success(true)
@@ -134,12 +130,59 @@ namespace InstaSharper.API.Processors
             }
         }
 
+        public async Task<IResult<bool>> LikeMediaCommentAsync(long commentId)
+        {
+            try
+            {
+                var instaUri = UriCreator.GetMediaCommetLikeUri(commentId);
+                var fields = new Dictionary<string, string>
+                {
+                    {"_uuid", _deviceInfo.DeviceGuid.ToString()},
+                    {"_uid", _user.LoggedInUder.Pk.ToString()},
+                    {"_csrftoken", _user.CsrfToken}
+                };
+                var response = await _httpRequestProcessor.SendAsync(() => HttpHelper.GetSignedRequest(HttpMethod.Post, instaUri, _deviceInfo, fields));
+                var json = await response.Content.ReadAsStringAsync();
+                return response.StatusCode == HttpStatusCode.OK
+                    ? Result.Success(true)
+                    : Result.UnExpectedResponse<bool>(response, json);
+            }
+            catch (Exception exception)
+            {
+                _logger?.LogException(exception);
+                return Result.Fail(exception.Message, false);
+            }
+        }
+        public async Task<IResult<InstaLikersList>> GetMediaCommentLikersAsync(long commentId)
+        {
+            try
+            {
+                var likers = new InstaLikersList();
+                var likersUri = UriCreator.GetCommentLikersUri(commentId);
+                var response = await _httpRequestProcessor.SendAsync(() => HttpHelper.GetDefaultRequest(HttpMethod.Get, likersUri, _deviceInfo));
+                var json = await response.Content.ReadAsStringAsync();
+                if (response.StatusCode != HttpStatusCode.OK)
+                    return Result.UnExpectedResponse<InstaLikersList>(response, json);
+                var mediaLikersResponse = JsonConvert.DeserializeObject<InstaMediaLikersResponse>(json);
+                likers.UsersCount = mediaLikersResponse.UsersCount;
+                if (mediaLikersResponse.UsersCount < 1) return Result.Success(likers);
+                likers.AddRange(
+                    mediaLikersResponse.Users.Select(ConvertersFabric.Instance.GetUserShortConverter)
+                        .Select(converter => converter.Convert()));
+                return Result.Success(likers);
+            }
+            catch (Exception exception)
+            {
+                _logger?.LogException(exception);
+                return Result.Fail<InstaLikersList>(exception);
+            }
+        }
+
         private async Task<IResult<InstaCommentListResponse>> GetCommentListWithMaxIdAsync(string mediaId,
             string nextId)
         {
             var commentsUri = UriCreator.GetMediaCommentsUri(mediaId, nextId);
-            var request = HttpHelper.GetDefaultRequest(HttpMethod.Get, commentsUri, _deviceInfo);
-            var response = await _httpRequestProcessor.SendAsync(request);
+            var response = await _httpRequestProcessor.SendAsync(() => HttpHelper.GetDefaultRequest(HttpMethod.Get, commentsUri, _deviceInfo));
             var json = await response.Content.ReadAsStringAsync();
             if (response.StatusCode != HttpStatusCode.OK)
                 return Result.UnExpectedResponse<InstaCommentListResponse>(response, json);

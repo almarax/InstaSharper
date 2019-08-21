@@ -23,12 +23,12 @@ namespace InstaSharper.API.Processors
         private readonly UserSessionData _user;
 
         public StoryProcessor(AndroidDevice deviceInfo, UserSessionData user,
-            IHttpRequestProcessor httpRequestProcessor, IInstaLogger logger)
+            IHttpRequestProcessor httpRequestProcessor, Func<object, IInstaLogger> loggerFactory)
         {
             _deviceInfo = deviceInfo;
             _user = user;
             _httpRequestProcessor = httpRequestProcessor;
-            _logger = logger;
+            _logger = loggerFactory(this);
         }
 
         public async Task<IResult<InstaStoryFeed>> GetStoryFeedAsync()
@@ -36,8 +36,7 @@ namespace InstaSharper.API.Processors
             try
             {
                 var storyFeedUri = UriCreator.GetStoryFeedUri();
-                var request = HttpHelper.GetDefaultRequest(HttpMethod.Get, storyFeedUri, _deviceInfo);
-                var response = await _httpRequestProcessor.SendAsync(request);
+                var response = await _httpRequestProcessor.SendAsync(() => HttpHelper.GetDefaultRequest(HttpMethod.Get, storyFeedUri, _deviceInfo));
                 var json = await response.Content.ReadAsStringAsync();
                 if (response.StatusCode != HttpStatusCode.OK) return Result.Fail("", (InstaStoryFeed) null);
                 var storyFeedResponse = JsonConvert.DeserializeObject<InstaStoryFeedResponse>(json);
@@ -56,8 +55,7 @@ namespace InstaSharper.API.Processors
             try
             {
                 var userStoryUri = UriCreator.GetUserStoryUri(userId);
-                var request = HttpHelper.GetDefaultRequest(HttpMethod.Get, userStoryUri, _deviceInfo);
-                var response = await _httpRequestProcessor.SendAsync(request);
+                var response = await _httpRequestProcessor.SendAsync(() => HttpHelper.GetDefaultRequest(HttpMethod.Get, userStoryUri, _deviceInfo));
                 var json = await response.Content.ReadAsStringAsync();
 
                 if (response.StatusCode != HttpStatusCode.OK) Result.UnExpectedResponse<InstaStory>(response, json);
@@ -92,9 +90,12 @@ namespace InstaSharper.API.Processors
                 imageContent.Headers.Add("Content-Transfer-Encoding", "binary");
                 imageContent.Headers.Add("Content-Type", "application/octet-stream");
                 requestContent.Add(imageContent, "photo", $"pending_media_{ApiRequestMessage.GenerateUploadId()}.jpg");
-                var request = HttpHelper.GetDefaultRequest(HttpMethod.Post, instaUri, _deviceInfo);
-                request.Content = requestContent;
-                var response = await _httpRequestProcessor.SendAsync(request);
+                var response = await _httpRequestProcessor.SendAsync(() =>
+                {
+                    var request = HttpHelper.GetDefaultRequest(HttpMethod.Post, instaUri, _deviceInfo);
+                    request.Content = requestContent;
+                    return request;
+                });
                 var json = await response.Content.ReadAsStringAsync();
                 if (response.IsSuccessStatusCode)
                     return await ConfigureStoryPhotoAsync(image, uploadId, caption);
@@ -126,8 +127,7 @@ namespace InstaSharper.API.Processors
                     {"configure_mode", 1},
                     {"camera_position", "unknown"}
                 };
-                var request = HttpHelper.GetSignedRequest(HttpMethod.Post, instaUri, _deviceInfo, data);
-                var response = await _httpRequestProcessor.SendAsync(request);
+                var response = await _httpRequestProcessor.SendAsync(() => HttpHelper.GetSignedRequest(HttpMethod.Post, instaUri, _deviceInfo, data));
                 var json = await response.Content.ReadAsStringAsync();
                 if (response.IsSuccessStatusCode)
                 {
@@ -151,8 +151,7 @@ namespace InstaSharper.API.Processors
             try
             {
                 var userFeedUri = UriCreator.GetUserReelFeedUri(userId);
-                var request = HttpHelper.GetDefaultRequest(HttpMethod.Get, userFeedUri, _deviceInfo);
-                var response = await _httpRequestProcessor.SendAsync(request);
+                var response = await _httpRequestProcessor.SendAsync(() => HttpHelper.GetDefaultRequest(HttpMethod.Get, userFeedUri, _deviceInfo));
                 var json = await response.Content.ReadAsStringAsync();
                 if (response.StatusCode != HttpStatusCode.OK)
                     return Result.UnExpectedResponse<InstaReelFeed>(response, json);

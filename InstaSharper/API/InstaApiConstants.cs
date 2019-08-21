@@ -28,6 +28,7 @@ namespace InstaSharper.API
         public const string
             IG_SIGNATURE_KEY =
                 "98ff843b4c4d924311f452a965f073c7566ff680ee11d8fb7ba57264ab9fbabb";
+//                "937463b5272b5d60e9d20f0f8d7d192193dd95095a3ad43725d494300a5ea5fc";
 
         public const string HEADER_IG_SIGNATURE = "signed_body";
         public const string IG_SIGNATURE_KEY_VERSION = "4";
@@ -70,7 +71,7 @@ namespace InstaSharper.API
         public const string CHANGE_PASSWORD = API_SUFFIX + "/accounts/change_password/";
         public const string ACCOUNTS_LOGOUT = API_SUFFIX + "/accounts/logout/";
         public const string EXPLORE = API_SUFFIX + "/discover/explore/";
-        public const string TIMELINEFEED = API_SUFFIX + "/feed/timeline/";
+      public const string TIMELINEFEED = API_SUFFIX + "/feed/timeline/";
         public const string USEREFEED = API_SUFFIX + "/feed/user/";
         public const string GET_USER_TAGS = API_SUFFIX + "/usertags/{0}/feed/";
         public const string GET_MEDIA = API_SUFFIX + "/media/{0}/info/";
@@ -117,6 +118,8 @@ namespace InstaSharper.API
         public const string ALLOW_MEDIA_COMMENTS = API_SUFFIX + "/media/{0}/enable_comments/";
         public const string DISABLE_MEDIA_COMMENTS = API_SUFFIX + "/media/{0}/disable_comments/";
         public const string DELETE_COMMENT = API_SUFFIX + "/media/{0}/comment/{1}/delete/";
+        public const string LIKE_COMMENT = API_SUFFIX + "/media/{0}/comment_like/"; //new!
+        public const string MEDIA_COMMENT_LIKERS = API_SUFFIX + "/media/{0}/comment_likers/"; //new!
         public const string UPLOAD_PHOTO = API_SUFFIX + "/upload/photo/";
         public const string UPLOAD_VIDEO = API_SUFFIX + "/upload/video/";
         public const string MEDIA_CONFIGURE = API_SUFFIX + "/media/configure/";

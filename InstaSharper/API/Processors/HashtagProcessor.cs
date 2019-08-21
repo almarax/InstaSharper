@@ -23,12 +23,12 @@ namespace InstaSharper.API.Processors
         private readonly UserSessionData _user;
 
         public HashtagProcessor(AndroidDevice deviceInfo, UserSessionData user,
-            IHttpRequestProcessor httpRequestProcessor, IInstaLogger logger)
+            IHttpRequestProcessor httpRequestProcessor, Func<object, IInstaLogger> loggerFactory)
         {
             _deviceInfo = deviceInfo;
             _user = user;
             _httpRequestProcessor = httpRequestProcessor;
-            _logger = logger;
+            _logger = loggerFactory(this);
         }
 
         public async Task<IResult<InstaHashtagSearch>> Search(string query, IEnumerable<long> excludeList,
@@ -41,8 +41,7 @@ namespace InstaSharper.API.Processors
             try
             {
                 var userUri = UriCreator.GetSearchTagUri(query, count, excludeList, rankToken);
-                var request = HttpHelper.GetDefaultRequest(HttpMethod.Get, userUri, _deviceInfo);
-                var response = await _httpRequestProcessor.SendAsync(request);
+                var response = await _httpRequestProcessor.SendAsync(() => HttpHelper.GetDefaultRequest(HttpMethod.Get, userUri, _deviceInfo));
                 var json = await response.Content.ReadAsStringAsync();
 
                 if (response.StatusCode == RequestHeaderFieldsTooLarge)
@@ -72,8 +71,7 @@ namespace InstaSharper.API.Processors
             try
             {
                 var userUri = UriCreator.GetTagInfoUri(tagname);
-                var request = HttpHelper.GetDefaultRequest(HttpMethod.Get, userUri, _deviceInfo);
-                var response = await _httpRequestProcessor.SendAsync(request);
+                var response = await _httpRequestProcessor.SendAsync(() => HttpHelper.GetDefaultRequest(HttpMethod.Get, userUri, _deviceInfo));
                 var json = await response.Content.ReadAsStringAsync();
 
                 if (response.StatusCode != HttpStatusCode.OK)

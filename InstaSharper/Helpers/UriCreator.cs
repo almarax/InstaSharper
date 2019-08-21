@@ -314,6 +314,14 @@ namespace InstaSharper.Helpers
             return instaUri;
         }
 
+        public static Uri GetCommentLikersUri(long commentId)
+        {
+            if (!Uri.TryCreate(BaseInstagramUri, string.Format(InstaApiConstants.MEDIA_COMMENT_LIKERS, commentId),
+                out var instaUri))
+                throw new Exception("Cant create URI for getting comment likers");
+            return instaUri;
+        }
+
         public static Uri GetFollowUserUri(long userId)
         {
             if (!Uri.TryCreate(BaseInstagramUri, string.Format(InstaApiConstants.FOLLOW_USER, userId),
@@ -394,6 +402,14 @@ namespace InstaSharper.Helpers
                 !Uri.TryCreate(BaseInstagramUri, string.Format(InstaApiConstants.DELETE_COMMENT, mediaId, commentId),
                     out var instaUri))
                 throw new Exception("Cant create URI for delete comment");
+            return instaUri;
+        }
+        public static Uri GetMediaCommetLikeUri(long commentId)
+        {
+            if (
+                !Uri.TryCreate(BaseInstagramUri, string.Format(InstaApiConstants.LIKE_COMMENT, commentId),
+                    out var instaUri))
+                throw new Exception("Cant create URI for media like comment");
             return instaUri;
         }
 

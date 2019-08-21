@@ -1,7 +1,9 @@
+using System;
 using System.Net.Http;
 using InstaSharper.Classes;
 using InstaSharper.Classes.Android.DeviceInfo;
 using InstaSharper.Logger;
+using Polly;
 
 namespace InstaSharper.API.Builder
 {
@@ -18,7 +20,7 @@ namespace InstaSharper.API.Builder
         /// </summary>
         /// <param name="logger">IInstaLogger implementation</param>
         /// <returns>API Builder</returns>
-        IInstaApiBuilder UseLogger(IInstaLogger logger);
+        IInstaApiBuilder UseLogger(Func<object, IInstaLogger> loggerFactory);
 
         /// <summary>
         ///     Set specific HttpClient
@@ -51,10 +53,19 @@ namespace InstaSharper.API.Builder
         IInstaApiBuilder SetApiRequestMessage(ApiRequestMessage requestMessage);
 
         /// <summary>
-        ///     Set delay between requests. Useful when API supposed to be used for mass-bombing.
+        ///     Set delay between requests in milliseconds. Useful when API supposed to be used for mass-bombing.
         /// </summary>
-        /// <param name="delay">Timespan delay</param>
+        /// <param name="minDelay">min delay in ms</param>
+        /// <param name="maxDelay">max delay in ms</param>
         /// <returns>API Builder</returns>
-        IInstaApiBuilder SetRequestDelay(IRequestDelay delay);
+        IInstaApiBuilder SetRequestDelay(int minDelay, int maxDelay);
+        /// <summary>
+        ///     Set Polly retry policy
+        /// </summary>
+        /// <param name="delay">policy</param>
+        /// <returns>
+        ///     API Builder
+        /// </returns>
+        IInstaApiBuilder SetRetryPolicy(Policy retryPolicy);
     }
 }

@@ -13,5 +13,6 @@ namespace InstaSharper.Classes.Android.DeviceInfo
         public const string NEXUS4_CHROMA = "nexus4-chroma";
         public const string SONY_Z3_COMPACT = "sony-z3-compact";
         public const string XPERIA_Z5 = "xperia-z5";
+        public const string GALAXY9Plus = "galaxy-s9-plus";
     }
 }
