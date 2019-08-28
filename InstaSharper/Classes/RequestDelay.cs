@@ -37,7 +37,7 @@ namespace InstaSharper.Classes
         private readonly int _maxSeconds;
         private bool _isEnabled;
 
-        public TimeSpan Value => Exist ? TimeSpan.FromSeconds(_random.Next(_minSeconds, _maxSeconds)) : TimeSpan.Zero;
+        public TimeSpan Value => Exist ? TimeSpan.FromMilliseconds(_random.Next(_minSeconds, _maxSeconds)) : TimeSpan.Zero;
 
         public bool Exist => _isEnabled && _minSeconds != 0 && _maxSeconds != 0;
 
