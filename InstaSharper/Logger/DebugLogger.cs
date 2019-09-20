@@ -116,5 +116,12 @@ namespace InstaSharper.Logger
             System.Diagnostics.Debug.WriteLine($"{DateTime.Now.ToString()}:\t{message}");
 #endif
         }
+
+        public void LogException(Exception exception, string message)
+        {
+            if (_logLevel < LogLevel.Exceptions) return;
+            Console.WriteLine($"Exception: {exception.Message}: {message}");
+            Console.WriteLine($"Stacktrace: {exception.StackTrace}");
+        }
     }
 }
