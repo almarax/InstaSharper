@@ -19,7 +19,7 @@ namespace InstaSharper.Converters.Media
                 Code = SourceObject.Media.Code,
                 Pk = SourceObject.Media.Pk,
                 ClientCacheKey = SourceObject.Media.ClientCacheKey,
-                CommentsCount = int.TryParse(SourceObject.Media.CommentsCount, out var r) ? r : -1,
+                CommentsCount = SourceObject.Media.CommentsCount,
                 DeviceTimeStamp = DateTimeHelper.UnixTimestampToDateTime(SourceObject.Media.DeviceTimeStampUnixLike),
                 HasLiked = SourceObject.Media.HasLiked,
                 PhotoOfYou = SourceObject.Media.PhotoOfYou,
