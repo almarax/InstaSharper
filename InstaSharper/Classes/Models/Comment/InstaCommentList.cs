@@ -29,8 +29,8 @@ namespace InstaSharper.Classes.Models.Comment
         
         public bool InsertNewCommentToTop { get; set; }
         
-        public List<InstaComment> PreviewComments { get; set; }
-        
+        public List<InstaComment> PreviewComments { get; set; } = new List<InstaComment>();
+
         public bool CanViewMorePreviewComments { get; set; }
         
         public string NextMinId { get; set; }
